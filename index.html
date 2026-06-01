@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exotel Implementation Man Days Calculator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+  :root { --primary:#1a237e;--accent:#e65100;--bg:#f5f6fa;--card:#fff;--border:#e0e0e0;--text:#212121;--muted:#757575;--pe:#1565c0;--pm:#6a1b9a;--ps:#2e7d32; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+  .header{background:var(--primary);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .header-title{font-size:17px;font-weight:700;}
+  .header-sub{font-size:11px;opacity:.75;margin-top:2px;}
+  .header-actions{display:flex;gap:6px;}
+  .btn{padding:6px 12px;border-radius:5px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;}
+  .btn-outline{background:transparent;border:1.5px solid rgba(255,255,255,.7);color:#fff;}
+  .btn-outline:hover{background:rgba(255,255,255,.15);}
+  .btn-accent{background:var(--accent);color:#fff;}
+  .btn-green{background:#2e7d32;color:#fff;}
+  .layout{display:flex;height:calc(100vh - 52px);overflow:hidden;}
+  .left-panel{flex:1;overflow-y:auto;padding:14px;}
+  .right-panel{width:300px;background:var(--card);border-left:1px solid var(--border);overflow-y:auto;padding:14px;flex-shrink:0;}
+  .tabs{display:flex;gap:3px;margin-bottom:14px;background:var(--card);border-radius:7px;padding:4px;border:1px solid var(--border);}
+  .tab{flex:1;padding:7px 4px;text-align:center;border-radius:5px;cursor:pointer;font-weight:600;font-size:12px;color:var(--muted);transition:all .2s;}
+  .tab.active{background:var(--primary);color:#fff;}
+  .tab:hover:not(.active){background:#e8eaf6;color:var(--primary);}
+  .card{background:var(--card);border-radius:7px;border:1px solid var(--border);margin-bottom:10px;}
+  .card-header{padding:9px 13px;background:#f5f6fa;border-bottom:1px solid var(--border);border-radius:7px 7px 0 0;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+  .card-header h3{font-size:12px;font-weight:700;color:var(--primary);}
+  .card-body{padding:10px 13px;}
+  .form-row{display:flex;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid #f0f0f0;}
+  .form-row:last-child{border-bottom:none;}
+  .form-check{width:16px;height:16px;cursor:pointer;flex-shrink:0;accent-color:var(--primary);}
+  .form-label{flex:1;font-size:12px;}
+  .form-label .hint{font-size:10px;color:var(--muted);display:block;}
+  .day-input{width:54px;border:1px solid var(--border);border-radius:4px;padding:2px 5px;text-align:center;font-size:12px;font-weight:600;color:var(--ps);}
+  .day-input:focus,.count-input:focus{outline:none;border-color:var(--primary);}
+  .count-input{width:64px;border:1px solid var(--border);border-radius:4px;padding:2px 5px;text-align:center;font-size:12px;font-weight:600;}
+  select{border:1px solid var(--border);border-radius:4px;padding:4px 7px;font-size:12px;background:#fff;cursor:pointer;width:100%;}
+  select:focus{outline:none;border-color:var(--primary);}
+  .config-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .config-item label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600;}
+  .add-row-btn{display:flex;align-items:center;gap:5px;color:var(--primary);cursor:pointer;font-size:12px;font-weight:600;padding:5px 0;border:none;background:none;}
+  .add-row-btn:hover{color:var(--accent);}
+  .mult-info{background:#e8f5e9;border-left:3px solid var(--ps);border-radius:4px;padding:5px 9px;font-size:11px;color:#1b5e20;margin:6px 0;}
+  .fix-note{background:#fff3e0;border-left:3px solid #e65100;border-radius:4px;padding:5px 9px;font-size:11px;color:#bf360c;margin:6px 0;}
+  /* Results */
+  .results-title{font-size:14px;font-weight:700;color:var(--primary);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--primary);}
+  .total-days{text-align:center;padding:12px;background:linear-gradient(135deg,#1a237e,#283593);border-radius:7px;color:#fff;margin-bottom:10px;}
+  .total-days .num{font-size:40px;font-weight:800;line-height:1;}
+  .total-days .lbl{font-size:11px;opacity:.8;margin-top:3px;}
+  .role-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:10px;}
+  .role-card{border-radius:5px;padding:7px 4px;text-align:center;color:#fff;}
+  .role-card .r-num{font-size:20px;font-weight:800;}
+  .role-card .r-lbl{font-size:10px;opacity:.9;margin-top:1px;}
+  .role-card.pe{background:var(--pe);}
+  .role-card.pm{background:var(--pm);}
+  .role-card.ps{background:var(--ps);}
+  .chart-wrap{position:relative;height:170px;margin-bottom:10px;}
+  .phase-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px;}
+  .phase-row{display:flex;align-items:center;gap:5px;margin-bottom:4px;}
+  .phase-name{font-size:11px;width:72px;}
+  .phase-bar-wrap{flex:1;background:#f0f0f0;border-radius:3px;height:12px;overflow:hidden;}
+  .phase-bar{height:100%;border-radius:3px;transition:width .4s;}
+  .phase-days{font-size:11px;font-weight:600;width:32px;text-align:right;}
+  .results-actions{display:flex;flex-direction:column;gap:5px;margin-top:10px;}
+  .results-actions .btn{width:100%;text-align:center;padding:8px;}
+
+  /* REFERENCE TAB */
+  .ref-section-title{font-size:13px;font-weight:700;color:var(--primary);margin:12px 0 6px;padding-bottom:4px;border-bottom:2px solid var(--primary);}
+  .ref-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
+  .ref-table th{background:var(--primary);color:#fff;padding:6px 8px;text-align:left;font-size:11px;}
+  .ref-table td{padding:5px 8px;border-bottom:1px solid var(--border);}
+  .ref-table tr:nth-child(even) td{background:#f5f6fa;}
+  .ref-table tr:hover td{background:#e8eaf6;}
+  .badge{display:inline-block;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;}
+  .badge-1{background:#e3f2fd;color:#1565c0;}
+  .badge-2{background:#f3e5f5;color:#6a1b9a;}
+  .badge-3{background:#e8f5e9;color:#2e7d32;}
+  .badge-4{background:#fce4ec;color:#c62828;}
+  .tag{display:inline-block;background:#e8eaf6;color:var(--primary);border-radius:3px;padding:1px 5px;font-size:10px;margin:1px;}
+  .formula-box{background:#f5f6fa;border:1px solid var(--border);border-radius:5px;padding:10px 12px;font-size:12px;margin-bottom:10px;}
+  .formula-box h4{font-size:12px;font-weight:700;color:var(--primary);margin-bottom:6px;}
+  .formula-row{display:flex;gap:6px;margin-bottom:3px;align-items:flex-start;}
+  .formula-row .fkey{font-weight:700;color:var(--muted);width:100px;flex-shrink:0;font-size:11px;}
+  .formula-row .fval{font-size:11px;color:var(--text);}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;}
+  .stat-card .sv{font-size:22px;font-weight:800;color:var(--primary);}
+  .stat-card .sl{font-size:10px;color:var(--muted);margin-top:2px;}
+
+  .print-meta{display:none;}
+  @media print {
+    .header-actions,.results-actions,.add-row-btn,.no-print{display:none!important;}
+    #creator-name{border:none!important;background:transparent!important;color:#fff!important;pointer-events:none;}
+    .print-meta{display:block;font-size:11px;color:rgba(255,255,255,.85);margin-top:3px;}
+    .layout{display:block;height:auto;}
+    .left-panel{overflow:visible;}
+    .right-panel{width:100%;border-left:none;border-top:2px solid var(--border);page-break-before:always;}
+    .tabs{display:none;}
+    /* Only show the active tab — others stay hidden */
+    .tab-content{display:none!important;}
+    .tab-content.print-active{display:block!important;}
+    .card{page-break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">Exotel Implementation Man Days Calculator</div>
+    <div class="header-sub">Internal PS/PM Tool — Confidential | v2.0</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <label style="font-size:11px;opacity:.8;white-space:nowrap;">Prepared by:</label>
+      <input id="creator-name" type="text" placeholder="Your name" style="border:1px solid rgba(255,255,255,.4);border-radius:4px;background:rgba(255,255,255,.15);color:#fff;padding:4px 8px;font-size:12px;width:160px;" oninput="this.style.borderColor=this.value?'rgba(255,255,255,.8)':'rgba(255,255,255,.4)'">
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" onclick="copyToClipboard()">📋 Copy</button>
+      <button class="btn btn-outline" onclick="exportWord()">📄 Word</button>
+      <button class="btn btn-outline" onclick="logHistory('🖨️ PDF Print');window.print()">🖨️ Print</button>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="left-panel">
+    <!-- TABS -->
+    <div class="tabs no-print">
+      <div class="tab active" onclick="switchTab('ecc')">ECC</div>
+      <div class="tab" onclick="switchTab('chatbot')">Chatbot</div>
+      <div class="tab" onclick="switchTab('voicebot')">Voicebot</div>
+      <div class="tab" onclick="switchTab('cqa')">CQA</div>
+      <div class="tab" style="background:#fff3e0;color:#e65100;font-size:11px;" onclick="switchTab('reference')">📚 Reference</div>
+      <div class="tab" style="background:#e8f5e9;color:#2e7d32;font-size:11px;" onclick="switchTab('history')">🕐 History</div>
+    </div>
+
+    <!-- ECC TAB -->
+    <div id="tab-ecc" class="tab-content">
+      <div class="card">
+        <div class="card-header"><h3>📋 Project Mandays</h3></div>
+        <div class="card-body">
+          <div class="config-grid">
+            <div class="config-item"><label>Customer Type</label>
+              <select id="ecc-type" onchange="recalc('ecc')">
+                <option value="1">Type 1 — SMB</option>
+                <option value="2">Type 2 — Medium</option>
+                <option value="3">Type 3 — Large (APAC/Africa)</option>
+                <option value="4">Type 4 — ME / MNC</option>
+              </select></div>
+            <div class="config-item"><label>Partner Discount</label>
+              <select id="ecc-partner" onchange="recalc('ecc')">
+                <option value="0">N — None (0%)</option>
+                <option value="0.25">A / D — 25%</option>
+                <option value="0.5">B / E / F — 50%</option>
+                <option value="0.9">C — 90%</option>
+                <option value="1">C+ — 100%</option>
+              </select></div>
+            <div class="config-item"><label>Product Readiness</label>
+              <select id="ecc-readiness" onchange="recalc('ecc')">
+                <option value="0">Cat 1 — Standard (+0/+0)</option>
+                <option value="1">Cat 2 — Minor (+2 PM, +3 PE)</option>
+                <option value="2">Cat 3 — Moderate (+5 PM, +8 PE)</option>
+                <option value="3">Cat 4 — Heavy (+10 PM, +20 PE)</option>
+              </select></div>
+            <div class="config-item"><label>Setup Complexity (Auto)</label>
+              <div id="ecc-complexity-display" style="border:1px solid var(--border);border-radius:4px;padding:4px 7px;font-size:12px;background:#f9f9f9;color:var(--primary);font-weight:600;">+0 PM, +0 PE</div>
+            </div>
+          </div>
+          <div class="mult-info" id="ecc-mult-info">Type 1 → PS ×1.0, PM ×0.8, PE ×0.8 | PM Base = 15% of PS | PE Base = 25% of PS</div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>📞 IVR & Routing</h3><span>▼</span></div><div class="card-body" id="ecc-ivr"></div></div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>🔗 CRM & Integrations</h3><span>▼</span></div><div class="card-body" id="ecc-crm"></div></div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>💬 Digital & Omnichannel</h3><span>▼</span></div><div class="card-body" id="ecc-digital"></div></div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>📊 Reports, Analytics & Security</h3><span>▼</span></div><div class="card-body" id="ecc-reports"></div></div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>➕ Custom / Additional Items</h3><span>▼</span></div>
+        <div class="card-body" id="ecc-custom"><button class="add-row-btn" onclick="addCustomRow('ecc')">＋ Add Custom Item</button></div></div>
+    </div>
+
+    <!-- CHATBOT TAB -->
+    <div id="tab-chatbot" class="tab-content" style="display:none">
+      <div class="card">
+        <div class="card-header"><h3>📋 Project Mandays</h3></div>
+        <div class="card-body">
+          <div class="config-grid">
+            <div class="config-item"><label>Customer Type</label>
+              <select id="chatbot-type" onchange="recalc('chatbot')">
+                <option value="1">Type 1 — SMB</option>
+                <option value="2">Type 2 — Medium</option>
+                <option value="3">Type 3 — Large</option>
+                <option value="4">Type 4 — ME / MNC</option>
+              </select></div>
+            <div class="config-item"><label>Partner Discount</label>
+              <select id="chatbot-partner" onchange="recalc('chatbot')">
+                <option value="0">N — None (0%)</option>
+                <option value="0.25">A / D — 25%</option>
+                <option value="0.5">B / E / F — 50%</option>
+                <option value="0.9">C — 90%</option>
+                <option value="1">C+ — 100%</option>
+              </select></div>
+          </div>
+          <div class="mult-info" id="chatbot-mult-info">Type 1 → Dev ×0.8 | QA = 20% of Dev | PM = 20% of (Dev+QA)</div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>🤖 Chatbot Components</h3><span>▼</span></div><div class="card-body" id="chatbot-items"></div></div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>➕ Custom / Additional Items</h3><span>▼</span></div>
+        <div class="card-body" id="chatbot-custom"><button class="add-row-btn" onclick="addCustomRow('chatbot')">＋ Add Custom Item</button></div></div>
+    </div>
+
+    <!-- VOICEBOT TAB -->
+    <div id="tab-voicebot" class="tab-content" style="display:none">
+      <div class="card">
+        <div class="card-header"><h3>📋 Project Mandays</h3></div>
+        <div class="card-body">
+          <div class="config-grid">
+            <div class="config-item"><label>Customer Type</label>
+              <select id="voicebot-type" onchange="recalc('voicebot')">
+                <option value="1">Type 1 — SMB</option>
+                <option value="2">Type 2 — Medium</option>
+                <option value="3">Type 3 — Large</option>
+                <option value="4">Type 4 — ME / MNC</option>
+              </select></div>
+            <div class="config-item"><label>Partner Discount</label>
+              <select id="voicebot-partner" onchange="recalc('voicebot')">
+                <option value="0">N — None (0%)</option>
+                <option value="0.25">A / D — 25%</option>
+                <option value="0.5">B / E / F — 50%</option>
+                <option value="0.9">C — 90%</option>
+                <option value="1">C+ — 100%</option>
+              </select></div>
+          </div>
+          <div class="mult-info" id="voicebot-mult-info">Type 1 → Dev ×0.8 | QA = 20% of Dev | PM = 20% of (Dev+QA)</div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>🎙️ Voicebot Components</h3><span>▼</span></div><div class="card-body" id="voicebot-items"></div></div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>➕ Custom / Additional Items</h3><span>▼</span></div>
+        <div class="card-body" id="voicebot-custom"><button class="add-row-btn" onclick="addCustomRow('voicebot')">＋ Add Custom Item</button></div></div>
+    </div>
+
+    <!-- CQA TAB -->
+    <div id="tab-cqa" class="tab-content" style="display:none">
+      <div class="card">
+        <div class="card-header"><h3>📋 Project Mandays</h3></div>
+        <div class="card-body">
+          <div class="config-grid">
+            <div class="config-item"><label>Customer Type</label>
+              <select id="cqa-type" onchange="recalc('cqa')">
+                <option value="1">Type 1 — SMB</option>
+                <option value="2">Type 2 — Medium</option>
+                <option value="3">Type 3 — Large</option>
+                <option value="4">Type 4 — ME / MNC</option>
+              </select></div>
+            <div class="config-item"><label>Partner Discount</label>
+              <select id="cqa-partner" onchange="recalc('cqa')">
+                <option value="0">N — None (0%)</option>
+                <option value="0.25">A / D — 25%</option>
+                <option value="0.5">B / E / F — 50%</option>
+                <option value="0.9">C — 90%</option>
+                <option value="1">C+ — 100%</option>
+              </select></div>
+            <div class="config-item"><label>Product Readiness</label>
+              <select id="cqa-readiness" onchange="recalc('cqa')">
+                <option value="0">Cat 1 — Standard</option>
+                <option value="1">Cat 2 — Minor (+2/+3)</option>
+                <option value="2">Cat 3 — Moderate (+5/+8)</option>
+                <option value="3">Cat 4 — Heavy (+10/+20)</option>
+              </select></div>
+            <div class="config-item"><label>Setup Complexity (Auto)</label>
+              <div id="cqa-complexity-display" style="border:1px solid var(--border);border-radius:4px;padding:4px 7px;font-size:12px;background:#f9f9f9;color:var(--primary);font-weight:600;">+0 PM, +0 PE</div>
+            </div>
+          </div>
+          <div class="mult-info" id="cqa-mult-info">Type 1 → PS ×1.0, PM ×0.8, PE ×0.8</div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>🔍 QA Configuration & Setup</h3><span>▼</span></div><div class="card-body" id="cqa-setup"></div></div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>🏷️ Conversation Tagging & Scoring</h3><span>▼</span></div><div class="card-body" id="cqa-tagging"></div></div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>📈 Reporting & Integrations</h3><span>▼</span></div><div class="card-body" id="cqa-reporting"></div></div>
+      <div class="card"><div class="card-header" onclick="toggleCard(this)"><h3>➕ Custom / Additional Items</h3><span>▼</span></div>
+        <div class="card-body" id="cqa-custom"><button class="add-row-btn" onclick="addCustomRow('cqa')">＋ Add Custom Item</button></div></div>
+    </div>
+
+    <!-- REFERENCE TAB -->
+    <div id="tab-reference" class="tab-content" style="display:none">
+
+      <!-- Formula Reference -->
+      <div class="card">
+        <div class="card-header" onclick="toggleCard(this)"><h3>📐 Formula Reference (from source sheets)</h3><span>▼</span></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="formula-box">
+              <h4>ECC / CQA Formula</h4>
+              <div class="formula-row"><span class="fkey">PS Days</span><span class="fval">Sum of selected feature PS days × Type PS multiplier</span></div>
+              <div class="formula-row"><span class="fkey">PM Base</span><span class="fval">15% of base PS × Type PM multiplier</span></div>
+              <div class="formula-row"><span class="fkey">PE Base</span><span class="fval">25% of base PS × Type PE multiplier</span></div>
+              <div class="formula-row"><span class="fkey">PM Final</span><span class="fval">PM Base + Readiness add-on + Complexity add-on</span></div>
+              <div class="formula-row"><span class="fkey">PE Final</span><span class="fval">PE Base + Readiness add-on + Complexity add-on</span></div>
+              <div class="formula-row"><span class="fkey">Partner disc.</span><span class="fval">All roles × (1 − discount %)</span></div>
+            </div>
+            <div class="formula-box">
+              <h4>Chatbot / Voicebot Formula</h4>
+              <div class="formula-row"><span class="fkey">Dev Days</span><span class="fval">Σ (count × factor/unit) × Type PE multiplier</span></div>
+              <div class="formula-row"><span class="fkey">QA Days</span><span class="fval">20% of Dev Days</span></div>
+              <div class="formula-row"><span class="fkey">PM Days</span><span class="fval">20% of (Dev + QA)</span></div>
+              <div class="formula-row"><span class="fkey">PS Days</span><span class="fval">Dev + QA (combined in PS role)</span></div>
+              <div class="formula-row"><span class="fkey">Partner disc.</span><span class="fval">All roles × (1 − discount %)</span></div>
+              <div class="formula-row"><span class="fkey">Source</span><span class="fval">Novo & Amana Chatbot effort sheets ✓</span></div>
+            </div>
+          </div>
+
+          <div class="formula-box" style="margin-top:8px;">
+            <h4>Customer Type Multipliers</h4>
+            <table class="ref-table" style="margin-bottom:0">
+              <thead><tr><th>Type</th><th>Label</th><th>PS ×</th><th>PM ×</th><th>PE ×</th><th>Typical Agent Scale</th></tr></thead>
+              <tbody>
+                <tr><td><span class="badge badge-1">Type 1</span></td><td>SMB</td><td>1.0</td><td>0.8</td><td>0.8</td><td>1–20 agents</td></tr>
+                <tr><td><span class="badge badge-2">Type 2</span></td><td>Medium</td><td>1.2</td><td>1.25</td><td>1.25</td><td>20–80 agents</td></tr>
+                <tr><td><span class="badge badge-3">Type 3</span></td><td>Large APAC/Africa</td><td>1.5</td><td>2.0</td><td>2.0</td><td>80–200 agents</td></tr>
+                <tr><td><span class="badge badge-4">Type 4</span></td><td>ME / MNC</td><td>2.0</td><td>3.0</td><td>4.0</td><td>200+ agents</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="formula-box" style="margin-top:8px;">
+            <h4>Product Readiness & Setup Complexity Add-ons (PM / PE days added on top)</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <table class="ref-table" style="margin-bottom:0"><thead><tr><th>Product Readiness</th><th>+PM</th><th>+PE</th></tr></thead>
+              <tbody>
+                <tr><td>Cat 1 — Standard</td><td>0</td><td>0</td></tr>
+                <tr><td>Cat 2 — Minor Custom</td><td>+2</td><td>+3</td></tr>
+                <tr><td>Cat 3 — Moderate Custom</td><td>+5</td><td>+8</td></tr>
+                <tr><td>Cat 4 — Heavy Custom</td><td>+10</td><td>+20</td></tr>
+              </tbody></table>
+              <table class="ref-table" style="margin-bottom:0"><thead><tr><th>Setup Complexity</th><th>+PM</th><th>+PE</th></tr></thead>
+              <tbody>
+                <tr><td>Cat 1 — Simple</td><td>0</td><td>0</td></tr>
+                <tr><td>Cat 2 — Low</td><td>+1</td><td>+2</td></tr>
+                <tr><td>Cat 3 — Medium</td><td>+3</td><td>+5</td></tr>
+                <tr><td>Cat 4 — High</td><td>+5</td><td>+10</td></tr>
+                <tr><td>Cat 5 — Complex</td><td>+8</td><td>+20</td></tr>
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ECC PS Feature Reference -->
+      <div class="card">
+        <div class="card-header" onclick="toggleCard(this)"><h3>📞 ECC Feature PS Days Reference (Standard Effort Sheet 4x)</h3><span>▼</span></div>
+        <div class="card-body">
+          <table class="ref-table">
+            <thead><tr><th>Category</th><th>Feature</th><th>Base PS Days</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td rowspan="8" style="font-weight:700;color:var(--primary)">IVR & Routing</td><td>Basic IVR (3-level, 2 languages)</td><td>5</td><td></td></tr>
+              <tr><td>Voicemail</td><td>1</td><td></td></tr>
+              <tr><td>Preferred Agent Routing</td><td>2</td><td></td></tr>
+              <tr><td>EWT / Queue Position Announcement</td><td>2</td><td></td></tr>
+              <tr><td>Queue Positioning</td><td>1</td><td></td></tr>
+              <tr><td>PBX Integration (SIP)</td><td>0</td><td>License only</td></tr>
+              <tr><td>VQ Pass in IVR</td><td>2</td><td></td></tr>
+              <tr><td>VQ Pass — 3rd Party Callback</td><td>5</td><td></td></tr>
+              <tr><td rowspan="9" style="font-weight:700;color:var(--primary)">CRM & Integrations</td><td>URL-based CRM Integration</td><td>3</td><td></td></tr>
+              <tr><td>miniCRM / Custom CRM (10 fields + REST API)</td><td>5</td><td></td></tr>
+              <tr><td>Generic Toolbar Integration</td><td>3</td><td></td></tr>
+              <tr><td>Pre-built CRM (SFDC, Zoho, Freshdesk, MSD)</td><td>0</td><td>License only</td></tr>
+              <tr><td>LeadSquared (LSQ) Integration</td><td>3</td><td></td></tr>
+              <tr><td>Customer Manager API</td><td>2</td><td></td></tr>
+              <tr><td>Ticketing API</td><td>5</td><td></td></tr>
+              <tr><td>Voicelog API</td><td>1</td><td></td></tr>
+              <tr><td>Stats Manager API</td><td>3</td><td></td></tr>
+              <tr><td rowspan="5" style="font-weight:700;color:var(--primary)">Digital & Omnichannel</td><td>Web Chat Integration</td><td>2</td><td></td></tr>
+              <tr><td>SMS / SMTP Gateway Integration</td><td>2</td><td></td></tr>
+              <tr><td>WhatsApp Notification via IVR</td><td>2</td><td></td></tr>
+              <tr><td>BYOB Chatbot (Cogno)</td><td>2</td><td></td></tr>
+              <tr><td>BYOB Chatbot (Non-Cogno)</td><td>3</td><td></td></tr>
+              <tr><td rowspan="8" style="font-weight:700;color:var(--primary)">Reports & Security</td><td>Voice of Customer / Feedback Survey</td><td>5</td><td></td></tr>
+              <tr><td>Report Scheduler</td><td>0</td><td>Out of box</td></tr>
+              <tr><td>Report Designer (Training + DB)</td><td>7</td><td></td></tr>
+              <tr><td>BI Tool Integration (Reporting Server)</td><td>5</td><td></td></tr>
+              <tr><td>IVR Synthesizer (Training)</td><td>5</td><td></td></tr>
+              <tr><td>LDAP / SAML / Google SSO</td><td>0</td><td>License only</td></tr>
+              <tr><td>Default TTS Connector</td><td>3</td><td></td></tr>
+              <tr><td>Default ASR Connector</td><td>3</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Chatbot & Voicebot Factor Reference -->
+      <div class="card">
+        <div class="card-header" onclick="toggleCard(this)"><h3>🤖 Chatbot & Voicebot Dev Day Factors</h3><span>▼</span></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-weight:700;font-size:12px;color:var(--primary);margin-bottom:6px;">Chatbot (from Novo & Amana sheets)</div>
+              <table class="ref-table" style="margin-bottom:0">
+                <thead><tr><th>Component</th><th>Factor</th><th>Unit</th></tr></thead>
+                <tbody>
+                  <tr><td>Channels</td><td>5</td><td>dev days/channel</td></tr>
+                  <tr><td>Additional Languages</td><td>3</td><td>dev days/language</td></tr>
+                  <tr><td>FAQ Ingestion</td><td>1</td><td>dev days/100 FAQs</td></tr>
+                  <tr><td>Document Ingestion (Exomind)</td><td>5</td><td>dev days/doc</td></tr>
+                  <tr><td>Major Flows</td><td>1.5</td><td>dev days/flow</td></tr>
+                  <tr><td>Sub Flows</td><td>1</td><td>dev days/flow</td></tr>
+                  <tr><td>API Integrations</td><td>1.5</td><td>dev days/API</td></tr>
+                  <tr><td>Live Chat (ECC/CC)</td><td>5</td><td>dev days/integration</td></tr>
+                  <tr><td>Live Chat (Self Chat)</td><td>2</td><td>dev days/integration</td></tr>
+                  <tr><td>Custom Reports</td><td>2</td><td>dev days/report</td></tr>
+                  <tr><td>On-Premise Deployment</td><td>10</td><td>dev days/setup</td></tr>
+                  <tr><td>SaaS/Cloud Deployment</td><td>2</td><td>dev days/setup</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:12px;color:var(--primary);margin-bottom:6px;">Voicebot (GenAI Voicebot sheet)</div>
+              <table class="ref-table" style="margin-bottom:0">
+                <thead><tr><th>Component</th><th>Factor</th><th>Unit</th></tr></thead>
+                <tbody>
+                  <tr><td>Additional Languages</td><td>2</td><td>dev days/language</td></tr>
+                  <tr><td>Standard Flows</td><td>2</td><td>dev days/flow</td></tr>
+                  <tr><td>Complex Flows</td><td>3</td><td>dev days/flow</td></tr>
+                  <tr><td>KB Integration (Docs/WB crawling)</td><td>2.5</td><td>dev days/doc</td></tr>
+                  <tr><td>ECC/CC Integration</td><td>5</td><td>dev days/CC</td></tr>
+                  <tr><td>API Integrations</td><td>1.5</td><td>dev days/API</td></tr>
+                  <tr><td>Custom Reports</td><td>2</td><td>dev days/report</td></tr>
+                  <tr><td>On-Premise Deployment</td><td>5</td><td>dev days/setup</td></tr>
+                  <tr><td>SaaS/Cloud Deployment</td><td>2</td><td>dev days/setup</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ECC Real Projects Reference -->
+      <div class="ref-section-title">📁 ECC — Real Project Benchmarks (from Drive)</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="sv" style="color:var(--ps)">6</div><div class="sl">ECC Projects</div></div>
+        <div class="stat-card"><div class="sv">22</div><div class="sl">Avg PS Days</div></div>
+        <div class="stat-card"><div class="sv">13</div><div class="sl">Avg PM Days</div></div>
+        <div class="stat-card"><div class="sv">24</div><div class="sl">Avg PE Days</div></div>
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:0;overflow-x:auto;">
+          <table class="ref-table" style="margin-bottom:0">
+            <thead><tr><th>Customer</th><th>Type</th><th>Agents</th><th>PS Days</th><th>PM Days</th><th>PE Days</th><th>Total</th><th>Key Features</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>RBH Oman</strong></td>
+                <td><span class="badge badge-1">T1 SMB</span></td>
+                <td>4</td><td>8</td><td>6.6</td><td>11.9</td><td><strong>26.5</strong></td>
+                <td><span class="tag">LSQ</span><span class="tag">PBX</span><span class="tag">Pre-built toolbar</span><span class="tag">Basic IVR</span></td>
+              </tr>
+              <tr>
+                <td><strong>Novo Cinema</strong></td>
+                <td><span class="badge badge-2">T2 Med</span></td>
+                <td>2</td><td>14</td><td>7.5</td><td>12.6</td><td><strong>34.1</strong></td>
+                <td><span class="tag">VOC</span><span class="tag">Freshdesk</span><span class="tag">Basic IVR (2L)</span><span class="tag">LSQ</span></td>
+              </tr>
+              <tr>
+                <td><strong>Bank Al-Etihad</strong></td>
+                <td><span class="badge badge-3">T3 Lge</span></td>
+                <td>120</td><td>19</td><td>—</td><td>—</td><td><strong>~35+</strong></td>
+                <td><span class="tag">PBX</span><span class="tag">Basic IVR</span><span class="tag">miniCRM</span><span class="tag">VLA</span></td>
+              </tr>
+              <tr>
+                <td><strong>Nayifat Collect</strong></td>
+                <td><span class="badge badge-3">T3 Lge</span></td>
+                <td>110</td><td>7</td><td>—</td><td>—</td><td><strong>~22+</strong></td>
+                <td><span class="tag">PBX</span><span class="tag">SMS</span><span class="tag">CM API</span><span class="tag">PACE</span><span class="tag">PPD</span></td>
+              </tr>
+              <tr>
+                <td><strong>Saudi Finance Co.</strong></td>
+                <td><span class="badge badge-4">T4 ME</span></td>
+                <td>100</td><td>28</td><td>17.8</td><td>35</td><td><strong>80.8</strong></td>
+                <td><span class="tag">MSD</span><span class="tag">Custom Toolbar</span><span class="tag">VOC</span><span class="tag">VQ Pass</span><span class="tag">CM API</span></td>
+              </tr>
+              <tr>
+                <td><strong>Petromin 6X KSA</strong></td>
+                <td><span class="badge badge-4">T4 ME</span></td>
+                <td>100</td><td>54</td><td>24.6</td><td>49.7</td><td><strong>128.3</strong></td>
+                <td><span class="tag">SFDC</span><span class="tag">SMS</span><span class="tag">miniCRM custom</span><span class="tag">Konnect</span><span class="tag">VLA</span><span class="tag">VQ Pass</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Chatbot Real Projects Reference -->
+      <div class="ref-section-title">📁 Chatbot — Real Project Benchmarks (from Drive)</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="sv" style="color:var(--ps)">2</div><div class="sl">Chatbot Projects</div></div>
+        <div class="stat-card"><div class="sv">40</div><div class="sl">Avg Dev Days</div></div>
+        <div class="stat-card"><div class="sv">8</div><div class="sl">Avg QA Days</div></div>
+        <div class="stat-card"><div class="sv">59</div><div class="sl">Avg Grand Total</div></div>
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:0;overflow-x:auto;">
+          <table class="ref-table" style="margin-bottom:0">
+            <thead><tr><th>Customer</th><th>Channel</th><th>Dev Days</th><th>QA Days</th><th>PM Days</th><th>Total</th><th>Key Components</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>Novo Cinema</strong></td>
+                <td>Website</td><td>27</td><td>4</td><td>7</td><td><strong>38</strong></td>
+                <td><span class="tag">1 channel</span><span class="tag">Arabic</span><span class="tag">FAQ</span><span class="tag">3 major flows</span><span class="tag">ECC live chat</span><span class="tag">2 cloud deploys</span></td>
+              </tr>
+              <tr>
+                <td><strong>Amana Insurance</strong></td>
+                <td>WhatsApp</td><td>54</td><td>12</td><td>14</td><td><strong>80</strong></td>
+                <td><span class="tag">1 channel</span><span class="tag">Arabic</span><span class="tag">6 major flows</span><span class="tag">18 sub flows</span><span class="tag">3 APIs</span><span class="tag">ECC live chat</span><span class="tag">Doc ingestion</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Benchmarking notes -->
+      <div class="card" style="margin-top:4px;">
+        <div class="card-header" onclick="toggleCard(this)"><h3>💡 Benchmarking Notes & Observations</h3><span>▼</span></div>
+        <div class="card-body" style="font-size:12px;line-height:1.8;">
+          <strong>ECC:</strong><br>
+          • Type 1 SMB (≤20 agents): typically 8–14 PS days, total 26–34 days<br>
+          • Type 2 Medium (20–80 agents): typically 14–22 PS days<br>
+          • Type 4 ME/MNC (100+ agents, complex integrations): 28–54 PS days, total can exceed 100 days<br>
+          • Customization (miniCRM, node flows, Konnect) significantly increases PE days<br>
+          • VOC survey adds 5 PS days — common in ME/MNC deals<br>
+          • PBX integration is 0 PS days (license only) but adds PE days<br>
+          <br>
+          <strong>Chatbot:</strong><br>
+          • Simple FAQ + 1 channel: ~27 dev days, Grand Total ~38<br>
+          • Complex multi-flow (6+ flows, 18 sub-flows, APIs): 54 dev days, Grand Total ~80<br>
+          • Each major flow ≈ 1.5 dev days; sub flow ≈ 1 dev day<br>
+          • Arabic/additional language adds 3 dev days each<br>
+          • QA = 20% of Dev; PM = 20% of (Dev+QA) — confirmed from actual sheets<br>
+          • On-premise deployment = 10 dev days/setup (significantly higher than cloud's 2 days)<br>
+          <br>
+          <strong>General:</strong><br>
+          • DR/HA setup adds PE days (not tracked in PS calculator — add as custom item)<br>
+          • Voicelog Archiver = license only, 0 PS days<br>
+          • Report Scheduler = out-of-box, 0 PS days
+        </div>
+      </div>
+
+    </div><!-- end reference tab -->
+
+    <!-- HISTORY TAB -->
+    <div id="tab-history" class="tab-content" style="display:none">
+      <div class="card">
+        <div class="card-header" style="cursor:default;">
+          <h3>🕐 Quote Generation History</h3>
+          <button class="btn" style="background:#e53935;color:#fff;font-size:11px;padding:4px 10px;" onclick="clearHistory()">Clear All</button>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div id="history-empty" style="padding:24px;text-align:center;color:var(--muted);font-size:13px;">
+            No quotes generated yet. Use Copy, Word, or Print on any product tab to log an entry.
+          </div>
+          <table class="ref-table" id="history-table" style="margin-bottom:0;display:none">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Date & Time</th>
+                <th>Prepared By</th>
+                <th>Product</th>
+                <th>Customer Type</th>
+                <th>PE Days</th>
+                <th>PM Days</th>
+                <th>PS Days</th>
+                <th>Total</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="history-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);padding:6px 2px;">
+        History is saved in your browser and persists across sessions. Each Copy / Word Export / Print logs a new entry automatically.
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="results-title">📊 Effort Summary</div>
+    <div class="total-days">
+      <div class="num" id="total-days">0</div>
+      <div class="lbl">Total Man Days</div>
+    </div>
+    <div class="role-cards">
+      <div class="role-card pe"><div class="r-num" id="pe-days">0</div><div class="r-lbl">Proj. Engg</div></div>
+      <div class="role-card pm"><div class="r-num" id="pm-days">0</div><div class="r-lbl">Proj. Mgmt</div></div>
+      <div class="role-card ps"><div class="r-num" id="ps-days">0</div><div class="r-lbl">Proj. Svc</div></div>
+    </div>
+    <div class="chart-wrap"><canvas id="donut-chart"></canvas></div>
+    <div class="phase-title">Phase Timeline</div>
+    <div id="phase-rows"></div>
+    <div id="discount-note" style="margin-top:8px;font-size:11px;color:var(--muted);text-align:center;display:none"></div>
+    <div class="results-actions no-print">
+      <button class="btn btn-green" onclick="copyToClipboard()">📋 Copy Proposal</button>
+      <button class="btn btn-accent" onclick="exportWord()">📄 Export Word</button>
+      <button class="btn" style="background:#455a64;color:#fff" onclick="logHistory('🖨️ PDF Print');window.print()">🖨️ Print / PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+const TYPE_MULT = {
+  1:{pm:0.8, ps:1.0, engg:0.8, label:'SMB'},
+  2:{pm:1.25,ps:1.2, engg:1.25,label:'Medium'},
+  3:{pm:2.0, ps:1.5, engg:2.0, label:'Large APAC/Africa'},
+  4:{pm:3.0, ps:2.0, engg:4.0, label:'ME/MNC'}
+};
+const READINESS_ADD=[{pm:0,pe:0},{pm:2,pe:3},{pm:5,pe:8},{pm:10,pe:20}];
+const COMPLEXITY_ADD=[{pm:0,pe:0},{pm:1,pe:2},{pm:3,pe:5},{pm:5,pe:10},{pm:8,pe:20}];
+
+// Complexity category factors (from "Eq" sheet):
+// N: pm=0, pe=0  | Cat1: pm=0.25, pe=1 | Cat2: pm=0.5, pe=2
+// Cat3: pm=1.25, pe=2.5 | Cat4: pm=0.5, pe=2 | Cat5: pm=3, pe=6
+const CAT_FACTORS = {
+  N:{pm:0,pe:0}, 1:{pm:0.25,pe:1}, 2:{pm:0.5,pe:2},
+  3:{pm:1.25,pe:2.5}, 4:{pm:0.5,pe:2}, 5:{pm:3,pe:6}
+};
+
+const ECC_FEATURES={
+  'ecc-ivr':[
+    {id:'basic_ivr',name:'IVR',ps:5,cat:'N'},
+    {id:'voicemail',name:'Voicemail',ps:1,cat:'N'},
+    {id:'preferred_agent',name:'Preferred Agent Routing',ps:2,cat:'N'},
+    {id:'ewt',name:'EWT / Queue Position Announcement',ps:2,cat:'N'},
+    {id:'queue_pos',name:'Queue Positioning',ps:1,cat:'N'},
+    {id:'pbx',name:'PBX Integration (SIP)',ps:0,cat:'1'},
+    {id:'vq_pass_ivr',name:'VQ Pass in IVR',ps:2,cat:'1'},
+    {id:'vq_pass_3p',name:'VQ Pass — 3rd Party Callback',ps:5,cat:'2'},
+  ],
+  'ecc-crm':[
+    {id:'url_crm',name:'URL-based CRM Integration',ps:3,cat:'3'},
+    {id:'mini_crm',name:'miniCRM / Custom CRM (10 fields + REST API)',ps:5,cat:'3'},
+    {id:'toolbar',name:'Generic Toolbar Integration',ps:3,cat:'3'},
+    {id:'prebuilt_crm',name:'Pre-built CRM (SFDC, Zoho, Freshdesk, MSD)',ps:0,cat:'3'},
+    {id:'lsq',name:'LeadSquared (LSQ) Integration',ps:3,cat:'3'},
+    {id:'cm_api',name:'Customer Manager API',ps:2,cat:'2'},
+    {id:'ticketing_api',name:'Ticketing API',ps:5,cat:'2'},
+    {id:'voicelog_api',name:'Voicelog API',ps:1,cat:'2'},
+    {id:'stats_api',name:'Stats Manager API',ps:3,cat:'2'},
+  ],
+  'ecc-digital':[
+    {id:'web_chat',name:'Web Chat Integration',ps:2,cat:'2'},
+    {id:'sms_smtp',name:'SMS / SMTP Gateway Integration',ps:2,cat:'2'},
+    {id:'whatsapp_notif',name:'WhatsApp Notification via IVR',ps:2,cat:'2'},
+    {id:'byob_cogno',name:'BYOB Chatbot (Cogno)',ps:2,cat:'2'},
+    {id:'byob_other',name:'BYOB Chatbot (Non-Cogno)',ps:3,cat:'2'},
+  ],
+  'ecc-reports':[
+    {id:'voc',name:'Voice of Customer / Feedback Survey',ps:5,cat:'N'},
+    {id:'report_sched',name:'Report Scheduler',ps:0,cat:'N'},
+    {id:'report_des',name:'Report Designer (Training + DB)',ps:7,cat:'3'},
+    {id:'bi_tool',name:'BI Tool Integration (Reporting Server)',ps:5,cat:'1'},
+    {id:'ivr_synth',name:'IVR Synthesizer (Training)',ps:5,cat:'3'},
+    {id:'ldap',name:'LDAP / SAML / Google SSO',ps:0,cat:'1'},
+    {id:'tts',name:'Default TTS Connector',ps:3,cat:'1'},
+    {id:'asr',name:'Default ASR Connector',ps:3,cat:'1'},
+  ]
+};
+
+const CQA_FEATURES={
+  'cqa-setup':[
+    {id:'cqa_onboard',name:'Platform Onboarding & Configuration',ps:3,cat:'N'},
+    {id:'cqa_user',name:'User & Role Setup',ps:2,cat:'N'},
+    {id:'cqa_audio',name:'Audio/Recording Source Integration',ps:3,cat:'1'},
+    {id:'cqa_crm_int',name:'CRM/Ticketing Integration',ps:5,cat:'2'},
+    {id:'cqa_sso',name:'SSO / LDAP Integration',ps:2,cat:'1'},
+  ],
+  'cqa-tagging':[
+    {id:'cqa_auto_tag',name:'Automated Call Tagging (AI)',ps:3,cat:'2'},
+    {id:'cqa_rubric',name:'Scoring Rubric / Evaluation Form Setup',ps:5,cat:'N'},
+    {id:'cqa_coaching',name:'Coaching Workflow Configuration',ps:3,cat:'N'},
+    {id:'cqa_sentiment',name:'Sentiment Analysis Setup',ps:2,cat:'2'},
+    {id:'cqa_keyword',name:'Keyword / Phrase Spotting',ps:2,cat:'2'},
+    {id:'cqa_topic',name:'Topic Classification (Custom Model)',ps:5,cat:'3'},
+  ],
+  'cqa-reporting':[
+    {id:'cqa_dash',name:'Standard QA Dashboards',ps:3,cat:'N'},
+    {id:'cqa_custom_rpt',name:'Custom Report Designer',ps:7,cat:'3'},
+    {id:'cqa_bi',name:'BI Tool Integration',ps:5,cat:'1'},
+    {id:'cqa_api',name:'API Export / Webhook Setup',ps:3,cat:'2'},
+    {id:'cqa_alert',name:'Alert & Notification Rules',ps:2,cat:'N'},
+  ]
+};
+
+// CORRECTED based on actual project sheets:
+// Channels: 5 dev/channel (was 3), Doc Ingestion: 5 dev/doc (was 2), On-prem: 10 dev/setup (was 5)
+// QA = 20% of Dev, PM = 20% of (Dev+QA)
+const CHATBOT_ITEMS=[
+  {id:'channels',   name:'Channels',                             factor:5,   unit:'channels', default:1,  hint:'5 dev days / channel'},
+  {id:'languages',  name:'Additional Languages',                 factor:3,   unit:'languages',default:0,  hint:'3 dev days / language'},
+  {id:'faq_100',    name:'FAQ Ingestion',                        factor:1,   unit:'×100 FAQs',default:0,  hint:'1 dev day / 100 FAQs'},
+  {id:'doc_ingest', name:'Document Ingestion (Exomind / GenAI)', factor:5,   unit:'docs',     default:0,  hint:'5 dev days / doc'},
+  {id:'major_flows',name:'Major Flows',                          factor:1.5, unit:'flows',    default:0,  hint:'1.5 dev days / flow'},
+  {id:'sub_flows',  name:'Sub Flows',                            factor:1,   unit:'flows',    default:0,  hint:'1 dev day / flow'},
+  {id:'apis',       name:'API Integrations',                     factor:1.5, unit:'APIs',     default:0,  hint:'1.5 dev days / API'},
+  {id:'live_ecc',   name:'Live Chat (ECC / CC Integration)',     factor:5,   unit:'intgr.',   default:0,  hint:'5 dev days / integration'},
+  {id:'live_self',  name:'Live Chat (Self Chat)',                factor:2,   unit:'intgr.',   default:0,  hint:'2 dev days / integration'},
+  {id:'reports',    name:'Custom Reports',                       factor:2,   unit:'reports',  default:0,  hint:'2 dev days / report'},
+  {id:'on_prem',    name:'On-Premise Deployments',              factor:10,  unit:'setups',   default:0,  hint:'10 dev days / setup'},
+  {id:'cloud',      name:'SaaS / Cloud Deployments',            factor:2,   unit:'setups',   default:2,  hint:'2 dev days / setup (UAT+Prod = 2 each)'},
+];
+
+const VOICEBOT_ITEMS=[
+  {id:'vb_lang',    name:'Additional Languages',                 factor:2,   unit:'languages',default:0,  hint:'2 dev days / language'},
+  {id:'vb_flows',   name:'Standard Flows',                       factor:2,   unit:'flows',    default:0,  hint:'2 dev days / flow'},
+  {id:'vb_cplx',    name:'Complex Flows',                        factor:3,   unit:'flows',    default:0,  hint:'3 dev days / flow'},
+  {id:'vb_kb',      name:'KB Integration (Docs / WB crawling)',  factor:2.5, unit:'docs',     default:0,  hint:'2.5 dev days / doc'},
+  {id:'vb_ecc',     name:'ECC / CC Integration',                 factor:5,   unit:'CCs',      default:0,  hint:'5 dev days / CC'},
+  {id:'vb_apis',    name:'API Integrations',                     factor:1.5, unit:'APIs',     default:0,  hint:'1.5 dev days / API'},
+  {id:'vb_rpts',    name:'Custom Reports',                       factor:2,   unit:'reports',  default:0,  hint:'2 dev days / report'},
+  {id:'vb_onprem',  name:'On-Premise Deployments',              factor:5,   unit:'setups',   default:0,  hint:'5 dev days / setup'},
+  {id:'vb_cloud',   name:'SaaS / Cloud Deployments',            factor:2,   unit:'setups',   default:2,  hint:'2 dev days / setup'},
+];
+
+// ===== STATE =====
+let currentTab='ecc';
+let customRows={ecc:[],chatbot:[],voicebot:[],cqa:[]};
+let donutChart=null;
+let customRowCounter=0;
+
+// ===== BUILD UI =====
+function buildFeatureSection(containerId,features,product){
+  const cont=document.getElementById(containerId);if(!cont)return;
+  cont.innerHTML='';
+  features.forEach(f=>{
+    const row=document.createElement('div');row.className='form-row';
+    row.innerHTML=`
+      <input type="checkbox" class="form-check" id="chk-${f.id}" onchange="recalc('${product}')">
+      <label class="form-label" for="chk-${f.id}">${f.name}${f.ps===0?'<span class="hint">License only — 0 PS days</span>':''}</label>
+      <input type="number" class="day-input" id="day-${f.id}" value="${f.ps}" min="0" step="0.5" onchange="recalc('${product}')">
+      <span style="font-size:10px;color:var(--muted);width:24px">days</span>`;
+    cont.appendChild(row);
+  });
+  const btn=document.createElement('button');btn.className='add-row-btn';
+  btn.innerHTML='＋ Add Item';btn.onclick=()=>addCustomRow(product,containerId);
+  cont.appendChild(btn);
+}
+
+function buildCountSection(containerId,items,product){
+  const cont=document.getElementById(containerId);if(!cont)return;
+  cont.innerHTML='';
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;gap:7px;padding:3px 0 7px;font-size:10px;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border);margin-bottom:3px;';
+  hdr.innerHTML='<span style="flex:1">Component</span><span style="width:64px;text-align:center">Count</span><span style="width:56px;text-align:center">Unit</span><span style="width:56px;text-align:center">Dev Days</span>';
+  cont.appendChild(hdr);
+  items.forEach(f=>{
+    const row=document.createElement('div');row.className='form-row';
+    row.innerHTML=`
+      <label class="form-label" for="cnt-${f.id}">${f.name}<span class="hint">${f.hint}</span></label>
+      <input type="number" class="count-input" id="cnt-${f.id}" value="${f.default}" min="0" step="1" onchange="recalc('${product}')">
+      <span style="font-size:10px;color:var(--muted);width:56px">${f.unit}</span>
+      <span id="dev-${f.id}" style="width:56px;text-align:center;font-weight:700;color:var(--pe);font-size:12px">0</span>`;
+    cont.appendChild(row);
+  });
+}
+
+function init(){
+  Object.entries(ECC_FEATURES).forEach(([sid,feats])=>buildFeatureSection(sid,feats,'ecc'));
+  Object.entries(CQA_FEATURES).forEach(([sid,feats])=>buildFeatureSection(sid,feats,'cqa'));
+  buildCountSection('chatbot-items',CHATBOT_ITEMS,'chatbot');
+  buildCountSection('voicebot-items',VOICEBOT_ITEMS,'voicebot');
+
+  const ctx=document.getElementById('donut-chart').getContext('2d');
+  donutChart=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels:['Proj. Engineering','Proj. Management','Proj. Service'],
+      datasets:[{data:[0,0,0],backgroundColor:['#1565c0','#6a1b9a','#2e7d32'],borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10}}}}
+  });
+  // Mark initial active tab for print
+  document.getElementById('tab-ecc').classList.add('print-active');
+  recalc('ecc');
+}
+
+// ===== CALCULATE =====
+function calcComplexityFromFeatures(product){
+  // Returns {pm, pe} complexity add-ons summed from selected feature categories
+  const featureMap = product==='ecc' ? ECC_FEATURES : CQA_FEATURES;
+  let compPm=0, compPe=0;
+  Object.values(featureMap).flat().forEach(f=>{
+    const chk=document.getElementById(`chk-${f.id}`);
+    if(chk&&chk.checked){
+      const catKey=f.cat||'N';
+      const factors=CAT_FACTORS[catKey]||CAT_FACTORS['N'];
+      compPm+=factors.pm;
+      compPe+=factors.pe;
+    }
+  });
+  // Update display
+  const disp=document.getElementById(`${product}-complexity-display`);
+  if(disp) disp.textContent=`+${r(compPm)} PM, +${r(compPe)} PE`;
+  return{pm:r(compPm),pe:r(compPe)};
+}
+
+function calcECC(product){
+  const typeVal=parseInt(document.getElementById(`${product}-type`).value);
+  const mult=TYPE_MULT[typeVal];
+  const partnerDisc=parseFloat(document.getElementById(`${product}-partner`).value);
+  const readAdd=READINESS_ADD[parseInt(document.getElementById(`${product}-readiness`).value)];
+  const compAdd=calcComplexityFromFeatures(product);
+
+  const allFeats=[...Object.values(ECC_FEATURES),...Object.values(CQA_FEATURES)].flat();
+  let basePS=0;
+  allFeats.forEach(f=>{
+    const chk=document.getElementById(`chk-${f.id}`);
+    const day=document.getElementById(`day-${f.id}`);
+    if(chk&&chk.checked&&day) basePS+=parseFloat(day.value)||0;
+  });
+  (customRows[product]||[]).forEach(r=>{
+    const el=document.getElementById(`cust-ps-${r.id}`);
+    if(el) basePS+=parseFloat(el.value)||0;
+  });
+
+  const ps=basePS*mult.ps;
+  const pm=(basePS*0.15*mult.pm)+readAdd.pm+compAdd.pm;
+  const pe=(basePS*0.25*mult.engg)+readAdd.pe+compAdd.pe;
+  const d=1-partnerDisc;
+  return{ps:r(ps*d),pm:r(pm*d),pe:r(pe*d),disc:partnerDisc};
+}
+
+function calcBot(product,items){
+  const typeVal=parseInt(document.getElementById(`${product}-type`).value);
+  const mult=TYPE_MULT[typeVal];
+  const partnerDisc=parseFloat(document.getElementById(`${product}-partner`).value);
+  const d=1-partnerDisc;
+
+  let totalDev=0;
+  items.forEach(f=>{
+    const cnt=parseFloat(document.getElementById(`cnt-${f.id}`)?.value)||0;
+    const dev=cnt*f.factor;
+    totalDev+=dev;
+    const el=document.getElementById(`dev-${f.id}`);
+    if(el) el.textContent=r(dev);
+  });
+  (customRows[product]||[]).forEach(row=>{
+    const el=document.getElementById(`cust-ps-${row.id}`);
+    if(el) totalDev+=parseFloat(el.value)||0;
+  });
+
+  const scaledDev=totalDev*mult.engg;
+  const qa=scaledDev*0.20;   // 20% QA — corrected from sheets
+  const pm=(scaledDev+qa)*0.20; // 20% PM of (Dev+QA) — corrected
+  const ps=scaledDev+qa;
+
+  return{ps:r(ps*d),pm:r(pm*d),pe:0,disc:partnerDisc};
+}
+
+function recalc(product){
+  if(product==='reference') return;
+  let res;
+  if(product==='ecc'||product==='cqa') res=calcECC(product);
+  else if(product==='chatbot') res=calcBot('chatbot',CHATBOT_ITEMS);
+  else res=calcBot('voicebot',VOICEBOT_ITEMS);
+
+  const{ps,pm,pe,disc}=res;
+  const total=ps+pm+pe;
+
+  document.getElementById('total-days').textContent=r(total);
+  document.getElementById('pe-days').textContent=r(pe);
+  document.getElementById('pm-days').textContent=r(pm);
+  document.getElementById('ps-days').textContent=r(ps);
+
+  if(donutChart){donutChart.data.datasets[0].data=[r(pe),r(pm),r(ps)];donutChart.update('none');}
+
+  const phases=[{name:'Discovery',pct:.15,color:'#7986cb'},{name:'Build',pct:.50,color:'#42a5f5'},{name:'UAT',pct:.25,color:'#66bb6a'},{name:'Go-Live',pct:.10,color:'#ffa726'}];
+  const phEl=document.getElementById('phase-rows');phEl.innerHTML='';
+  phases.forEach(p=>{
+    const days=r(total*p.pct);
+    const row=document.createElement('div');row.className='phase-row';
+    row.innerHTML=`<span class="phase-name">${p.name}</span>
+      <div class="phase-bar-wrap"><div class="phase-bar" style="width:${total>0?p.pct*100:0}%;background:${p.color}"></div></div>
+      <span class="phase-days">${days}d</span>`;
+    phEl.appendChild(row);
+  });
+
+  const typeVal=parseInt(document.getElementById(`${product}-type`).value);
+  const mult=TYPE_MULT[typeVal];
+  const infoEl=document.getElementById(`${product}-mult-info`);
+  if(infoEl){
+    if(product==='ecc'||product==='cqa')
+      infoEl.textContent=`Type ${typeVal} (${mult.label}) → PS ×${mult.ps}, PM ×${mult.pm}, PE ×${mult.engg} | PM Base=15% of PS | PE Base=25% of PS`;
+    else
+      infoEl.textContent=`Type ${typeVal} (${mult.label}) → Dev ×${mult.engg} | QA = 20% of Dev | PM = 20% of (Dev+QA)`;
+  }
+
+  const note=document.getElementById('discount-note');
+  if(disc>0){note.style.display='block';note.textContent=`Partner discount (${Math.round(disc*100)}%) applied`;}
+  else note.style.display='none';
+}
+
+function r(n){return Math.round(n*10)/10;}
+
+// ===== CUSTOM ROWS =====
+function addCustomRow(product,sectionId){
+  customRowCounter++;
+  const id=`cr_${product}_${customRowCounter}`;
+  customRows[product].push({id});
+  const targetId=sectionId||`${product}-custom`;
+  const cont=document.getElementById(targetId);
+  const btn=cont.querySelector('.add-row-btn');
+  const row=document.createElement('div');row.className='form-row';row.id=`row-${id}`;
+  const isPSBased=(product==='ecc'||product==='cqa');
+  if(isPSBased){
+    row.innerHTML=`
+      <input type="checkbox" class="form-check" id="chk-${id}" checked onchange="recalc('${product}')">
+      <input type="text" style="flex:1;border:1px solid var(--border);border-radius:4px;padding:2px 5px;font-size:12px" placeholder="Custom item name">
+      <input type="number" class="day-input" id="cust-ps-${id}" value="0" min="0" step="0.5" onchange="recalc('${product}')">
+      <span style="font-size:10px;color:var(--muted);width:24px">days</span>
+      <button onclick="removeCustomRow('${product}','${id}')" style="border:none;background:none;color:#e53935;cursor:pointer;font-size:15px;padding:0 2px">×</button>`;
+  } else {
+    row.innerHTML=`
+      <input type="text" style="flex:1;border:1px solid var(--border);border-radius:4px;padding:2px 5px;font-size:12px" placeholder="Custom item name">
+      <input type="number" class="count-input" id="cust-ps-${id}" value="0" min="0" step="0.5" placeholder="Days" onchange="recalc('${product}')">
+      <span style="font-size:10px;color:var(--muted);width:56px">days</span>
+      <button onclick="removeCustomRow('${product}','${id}')" style="border:none;background:none;color:#e53935;cursor:pointer;font-size:15px;padding:0 2px">×</button>`;
+  }
+  if(btn) cont.insertBefore(row,btn); else cont.appendChild(row);
+  recalc(product);
+}
+
+function removeCustomRow(product,id){
+  customRows[product]=customRows[product].filter(r=>r.id!==id);
+  const el=document.getElementById(`row-${id}`);if(el)el.remove();
+  recalc(product);
+}
+
+// ===== UI =====
+function switchTab(tab){
+  currentTab=tab;
+  const tabNames=['ecc','chatbot','voicebot','cqa','reference','history'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',tabNames[i]===tab));
+  document.querySelectorAll('.tab-content').forEach(c=>{
+    c.style.display='none';
+    c.classList.remove('print-active');
+  });
+  const activeEl=document.getElementById(`tab-${tab}`);
+  activeEl.style.display='block';
+  activeEl.classList.add('print-active');
+  if(tab==='history'){renderHistory();return;}
+  if(tab!=='reference') recalc(tab);
+}
+
+function toggleCard(header){
+  const body=header.nextElementSibling;
+  const icon=header.querySelector('span:last-child');
+  if(body.style.display==='none'){body.style.display='block';icon.textContent='▼';}
+  else{body.style.display='none';icon.textContent='▶';}
+}
+
+// ===== HISTORY =====
+function logHistory(action){
+  if(currentTab==='reference'||currentTab==='history') return;
+  const creator=getCreator();
+  if(!creator||creator==='—') return; // only log if name entered
+  const pe=document.getElementById('pe-days').textContent;
+  const pm=document.getElementById('pm-days').textContent;
+  const ps=document.getElementById('ps-days').textContent;
+  const total=document.getElementById('total-days').textContent;
+  const typeVal=document.getElementById(`${currentTab}-type`)?.value||'1';
+  const mult=TYPE_MULT[typeVal];
+  const now=new Date();
+  const entry={
+    id:Date.now(),
+    datetime:now.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    creator,
+    product:currentTab.toUpperCase(),
+    customerType:`T${typeVal} — ${mult?.label||''}`,
+    pe,pm,ps,total,action
+  };
+  const history=JSON.parse(localStorage.getItem('exotel_quote_history')||'[]');
+  history.unshift(entry);
+  localStorage.setItem('exotel_quote_history',JSON.stringify(history.slice(0,200)));
+}
+
+function renderHistory(){
+  const history=JSON.parse(localStorage.getItem('exotel_quote_history')||'[]');
+  const empty=document.getElementById('history-empty');
+  const table=document.getElementById('history-table');
+  const tbody=document.getElementById('history-body');
+  if(!history.length){empty.style.display='block';table.style.display='none';return;}
+  empty.style.display='none';table.style.display='table';
+  tbody.innerHTML=history.map((e,i)=>`
+    <tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td>${e.datetime}</td>
+      <td><strong>${e.creator}</strong></td>
+      <td><span class="badge badge-${e.product==='ECC'?'1':e.product==='CHATBOT'?'2':e.product==='VOICEBOT'?'3':'4'}">${e.product}</span></td>
+      <td style="font-size:11px">${e.customerType}</td>
+      <td style="color:var(--pe);font-weight:700">${e.pe}</td>
+      <td style="color:var(--pm);font-weight:700">${e.pm}</td>
+      <td style="color:var(--ps);font-weight:700">${e.ps}</td>
+      <td style="font-weight:800;font-size:14px">${e.total}</td>
+      <td style="font-size:10px;color:var(--muted)">${e.action}</td>
+    </tr>`).join('');
+}
+
+function clearHistory(){
+  if(!confirm('Clear all history? This cannot be undone.')) return;
+  localStorage.removeItem('exotel_quote_history');
+  renderHistory();
+}
+
+// ===== EXPORT =====
+function getCreator(){
+  const name=(document.getElementById('creator-name')?.value||'').trim();
+  return name||'—';
+}
+
+function getSummaryText(){
+  const pe=document.getElementById('pe-days').textContent;
+  const pm=document.getElementById('pm-days').textContent;
+  const ps=document.getElementById('ps-days').textContent;
+  const total=document.getElementById('total-days').textContent;
+  const tab=currentTab.toUpperCase();
+  const typeVal=document.getElementById(`${currentTab}-type`)?.value||'1';
+  const mult=TYPE_MULT[typeVal];
+  const date=new Date().toLocaleDateString('en-IN',{year:'numeric',month:'long',day:'numeric'});
+  return `Exotel Implementation Effort Estimate
+Product: ${tab} | Customer Type: ${typeVal} — ${mult?.label||''}
+Date: ${date}
+Prepared by: ${getCreator()}
+
+Role Breakdown:
+  Project Engineering (PE): ${pe} days
+  Project Management (PM): ${pm} days
+  Project Services (PS): ${ps} days
+  ─────────────────────────────
+  TOTAL: ${total} days
+
+Phase Timeline:
+  Discovery (15%): ${Math.round(total*0.15)} days
+  Build (50%): ${Math.round(total*0.50)} days
+  UAT (25%): ${Math.round(total*0.25)} days
+  Go-Live (10%): ${Math.round(total*0.10)} days
+
+Generated by Exotel Implementation Man Days Calculator v2.0 — Internal Use Only`;
+}
+
+function copyToClipboard(){
+  const text=getSummaryText();
+  logHistory('📋 Copied');
+  if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>alert('Copied!'));}
+  else{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('Copied!');}
+}
+
+function exportWord(){
+  const pe=document.getElementById('pe-days').textContent;
+  const pm=document.getElementById('pm-days').textContent;
+  const ps=document.getElementById('ps-days').textContent;
+  const total=document.getElementById('total-days').textContent;
+  const tab=currentTab.toUpperCase();
+  const typeVal=document.getElementById(`${currentTab}-type`)?.value||'1';
+  const mult=TYPE_MULT[typeVal];
+  const date=new Date().toLocaleDateString('en-IN',{year:'numeric',month:'long',day:'numeric'});
+  const creator=getCreator();
+  const html=`<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
+<head><meta charset='utf-8'><title>Exotel Effort Estimate</title>
+<style>body{font-family:Calibri,sans-serif;font-size:11pt;margin:1in;}h1{color:#1a237e;font-size:16pt;border-bottom:2pt solid #1a237e;padding-bottom:6pt;}h2{color:#1a237e;font-size:13pt;margin-top:14pt;}table{border-collapse:collapse;width:100%;margin-top:8pt;}th{background:#1a237e;color:#fff;padding:6pt 10pt;text-align:left;font-size:10pt;}td{padding:5pt 10pt;border:.5pt solid #e0e0e0;font-size:10pt;}tr:nth-child(even) td{background:#f5f6fa;}.total-row td{font-weight:bold;background:#e8eaf6!important;font-size:12pt;}.meta-table td{border:none;padding:3pt 10pt;background:transparent!important;}.footer{margin-top:20pt;font-size:9pt;color:#757575;font-style:italic;}</style></head>
+<body>
+<h1>Exotel Implementation Effort Estimate</h1>
+<table class="meta-table"><tr>
+  <td><strong>Product:</strong> ${tab}</td>
+  <td><strong>Customer Type:</strong> ${typeVal} — ${mult?.label||''}</td>
+  <td><strong>Date:</strong> ${date}</td>
+  <td><strong>Prepared by:</strong> ${creator}</td>
+</tr></table>
+<h2>Role Breakdown</h2>
+<table><tr><th>Role</th><th>Days</th><th>Description</th></tr>
+<tr><td>Project Engineering (PE)</td><td>${pe}</td><td>Technical implementation & configuration</td></tr>
+<tr><td>Project Management (PM)</td><td>${pm}</td><td>Project oversight, coordination & delivery</td></tr>
+<tr><td>Project Services (PS)</td><td>${ps}</td><td>Solution design, setup & customer enablement</td></tr>
+<tr class="total-row"><td><strong>TOTAL</strong></td><td><strong>${total}</strong></td><td></td></tr></table>
+<h2>Phase Timeline</h2>
+<table><tr><th>Phase</th><th>%</th><th>Days</th></tr>
+<tr><td>Discovery & Scoping</td><td>15%</td><td>${Math.round(total*.15)}</td></tr>
+<tr><td>Build & Configuration</td><td>50%</td><td>${Math.round(total*.50)}</td></tr>
+<tr><td>UAT & Testing</td><td>25%</td><td>${Math.round(total*.25)}</td></tr>
+<tr><td>Go-Live & Handover</td><td>10%</td><td>${Math.round(total*.10)}</td></tr></table>
+<p class="footer">Generated by Exotel Implementation Man Days Calculator v2.0 — Internal Use Only.</p>
+</body></html>`;
+  logHistory('📄 Word Export');
+  const blob=new Blob(['﻿'+html],{type:'application/msword'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`Exotel_Effort_${tab}_${date.replace(/\s/g,'_')}.doc`;
+  a.click();URL.revokeObjectURL(url);
+}
+
+init();
+</script>
+</body>
+</html>
